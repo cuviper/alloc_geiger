@@ -1,19 +1,12 @@
 # alloc_geiger
 
 [![Latest Version]][crates.io] [![docs]][docs.rs]
-[Latest Version]: https://img.shields.io/crates/v/alloc_geiger.svg
-[crates.io]: https://crates.io/crates/alloc_geiger
-[docs]: https://docs.rs/alloc_geiger/badge.svg
-[docs.rs]: https://docs.rs/alloc_geiger/
 
 A Rust allocator which makes sound when active, like a Geiger counter.
 
 Currently this just writes an ASCII [`BEL`] to `/dev/tty`.
 
 Inspired by [Malloc Geiger].
-
-[`BEL`]: https://en.wikipedia.org/wiki/Bell_character
-[Malloc Geiger]: https://github.com/laserallan/malloc_geiger
 
 ## Usage
 
@@ -44,7 +37,6 @@ use jemallocator::Jemalloc;
 static ALLOC: Geiger<Jemalloc> = Geiger::new(Jemalloc);
 ```
 
-[`jemallocator`]: https://crates.io/crates/jemallocator
 
 ## License
 
@@ -62,3 +54,11 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in `alloc_geiger` by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
+
+[`BEL`]: https://en.wikipedia.org/wiki/Bell_character
+[Malloc Geiger]: https://github.com/laserallan/malloc_geiger
+[`jemallocator`]: https://crates.io/crates/jemallocator
+[Latest Version]: https://img.shields.io/crates/v/alloc_geiger.svg
+[crates.io]: https://crates.io/crates/alloc_geiger
+[docs]: https://docs.rs/alloc_geiger/badge.svg
+[docs.rs]: https://docs.rs/alloc_geiger/
