@@ -1,5 +1,11 @@
 # alloc_geiger
 
+[![Latest Version]][crates.io] [![docs]][docs.rs]
+[Latest Version]: https://img.shields.io/crates/v/alloc_geiger.svg
+[crates.io]: https://crates.io/crates/alloc_geiger
+[docs]: https://docs.rs/alloc_geiger/badge.svg
+[docs.rs]: https://docs.rs/alloc_geiger/
+
 A Rust allocator which makes sound when active, like a Geiger counter.
 
 Currently this just writes an ASCII [`BEL`] to `/dev/tty`.
