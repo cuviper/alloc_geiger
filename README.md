@@ -15,7 +15,7 @@ To use `alloc_geiger` add it as a dependency:
 ```toml
 # Cargo.toml
 [dependencies]
-alloc_geiger = "0.1.0"
+alloc_geiger = "0.1"
 ```
 
 To set `alloc_geiger::Geiger` as the global allocator, it must be initialized
