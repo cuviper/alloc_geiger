@@ -1,11 +1,10 @@
 //! A Rust allocator which makes sound when active, like a Geiger counter.
 //!
-//! Currently this just writes an ASCII [`BEL`] to `/dev/tty`.
+//! The [`rodio`] crate is used to emit [sinc] pulses each time the allocator is
+//! used, excluding its own allocator activity.
 //!
 //! Inspired by [Malloc Geiger].
 //!
-//! [`BEL`]: https://en.wikipedia.org/wiki/Bell_character
-//! [Malloc Geiger]: https://github.com/laserallan/malloc_geiger
 //!
 //! ## Usage
 //!
@@ -14,7 +13,7 @@
 //! ```toml
 //! # Cargo.toml
 //! [dependencies]
-//! alloc_geiger = "0.1.0"
+//! alloc_geiger = "0.2"
 //! ```
 //!
 //! To set `alloc_geiger::Geiger` as the global allocator, it must be initialized
@@ -44,6 +43,9 @@
 //! }
 //! ```
 //!
+//! [`rodio`]: https://crates.io/crates/rodio
+//! [sinc]: https://en.wikipedia.org/wiki/Sinc_function
+//! [Malloc Geiger]: https://github.com/laserallan/malloc_geiger
 //! [`jemallocator`]: https://crates.io/crates/jemallocator
 
 use rodio::{OutputStream, OutputStreamHandle, Source};
