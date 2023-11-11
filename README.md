@@ -4,7 +4,7 @@
 
 A Rust allocator which makes sound when active, like a Geiger counter.
 
-The `rodio` crate is used to emit [sinc] pulses each time the allocator is
+The [`rodio`] crate is used to emit [sinc] pulses each time the allocator is
 used, excluding its own allocator activity.
 
 Inspired by [Malloc Geiger].
@@ -56,6 +56,7 @@ Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in `alloc_geiger` by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.
 
+[`rodio`]: https://crates.io/crates/rodio
 [sinc]: https://en.wikipedia.org/wiki/Sinc_function
 [Malloc Geiger]: https://github.com/laserallan/malloc_geiger
 [`jemallocator`]: https://crates.io/crates/jemallocator
