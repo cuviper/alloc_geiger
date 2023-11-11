@@ -46,17 +46,23 @@
 //!
 //! [`jemallocator`]: https://crates.io/crates/jemallocator
 
-use once_cell::sync::OnceCell;
+use rodio::{OutputStream, OutputStreamHandle, Source};
 use std::alloc::{self, GlobalAlloc, Layout};
 use std::cell::Cell;
-use std::fs::{File, OpenOptions};
-use std::io::Write;
+use std::f32::consts::PI;
+use std::ops::Range;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use std::sync::{Arc, Barrier, OnceLock};
+use std::time::Duration;
 
 /// Geiger counter allocator.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Geiger<Alloc> {
     inner: Alloc,
-    tty: OnceCell<Option<File>>,
+    stream_handle: OnceLock<Option<OutputStreamHandle>>,
+    /// non-blocking protection against recursive init
+    init: AtomicBool,
 }
 
 /// `Geiger` allocator based on `std::alloc::System`.
@@ -65,35 +71,39 @@ pub type System = Geiger<alloc::System>;
 /// `Geiger` allocator based on `std::alloc::System`.
 pub const SYSTEM: System = Geiger::new(alloc::System);
 
-fn open_tty() -> Option<File> {
-    OpenOptions::new().append(true).open("/dev/tty").ok()
+thread_local! {
+    /// Guard against recursion
+    static BUSY: Cell<bool> = const { Cell::new(false) };
 }
 
 impl<Alloc> Geiger<Alloc> {
     pub const fn new(inner: Alloc) -> Self {
         Geiger {
             inner,
-            tty: OnceCell::new(),
+            stream_handle: OnceLock::new(),
+            init: AtomicBool::new(false),
         }
     }
 
     fn bell(&self) {
-        const BEL: u8 = 0x07;
-
-        thread_local! {
-            // Guard against recursion
-            static BUSY: Cell<bool> = Cell::new(false);
-        }
-
         BUSY.with(|busy| {
             if !busy.replace(true) {
-                let tty = self.tty.get_or_init(open_tty);
-                if let Some(ref mut file) = tty.as_ref() {
-                    file.write_all(&[BEL]).ok();
+                if let Some(handle) = self.get_handle() {
+                    let _ = handle.play_raw(Pulse::new());
                 }
                 busy.set(false);
             }
         });
+    }
+
+    fn get_handle(&self) -> &Option<OutputStreamHandle> {
+        if let Some(handle) = self.stream_handle.get() {
+            handle
+        } else if !self.init.swap(true, Ordering::AcqRel) {
+            self.stream_handle.get_or_init(rodio_init)
+        } else {
+            &None
+        }
     }
 }
 
@@ -120,5 +130,119 @@ unsafe impl<Alloc: GlobalAlloc> GlobalAlloc for Geiger<Alloc> {
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         self.bell();
         self.inner.realloc(ptr, layout, new_size)
+    }
+}
+
+fn rodio_init() -> Option<OutputStreamHandle> {
+    if let Ok((stream, handle)) = OutputStream::try_default() {
+        let (source, barrier) = BusySource::new();
+        if let Ok(()) = handle.play_raw(source) {
+            barrier.wait();
+            std::mem::forget(stream);
+            return Some(handle);
+        }
+    }
+    None
+}
+
+struct BusySource {
+    busy_address: usize,
+    barrier: Option<Arc<Barrier>>,
+}
+
+impl BusySource {
+    fn new() -> (Self, Arc<Barrier>) {
+        let barrier = Arc::new(Barrier::new(2));
+        let source = BusySource {
+            busy_address: BUSY.with(|busy| busy as *const _ as usize),
+            barrier: Some(Arc::clone(&barrier)),
+        };
+        (source, barrier)
+    }
+}
+
+impl Iterator for BusySource {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        BUSY.with(|busy| {
+            if self.busy_address == busy as *const _ as usize {
+                Some(0.0)
+            } else {
+                busy.set(true);
+                self.barrier.take()?.wait();
+                None
+            }
+        })
+    }
+}
+
+impl Source for BusySource {
+    fn channels(&self) -> u16 {
+        1
+    }
+
+    fn sample_rate(&self) -> u32 {
+        1
+    }
+
+    fn current_frame_len(&self) -> Option<usize> {
+        None
+    }
+
+    fn total_duration(&self) -> Option<Duration> {
+        None
+    }
+}
+
+/// Simple pulse based on the sinc function, sin(x)/x
+struct Pulse {
+    range: Range<i16>,
+}
+
+impl Pulse {
+    const PEAK: f32 = 0.5;
+
+    const SAMPLE_RATE: u32 = 48_000;
+    const PERIOD_MILLIS: u32 = 4;
+    const PERIOD_SAMPLES: u32 = Self::SAMPLE_RATE / (Self::PERIOD_MILLIS * 1000);
+    const SAMPLE_SCALE: f32 = 2.0 * PI / Self::PERIOD_SAMPLES as f32;
+
+    const fn new() -> Self {
+        let i = Self::PERIOD_SAMPLES as i16 * 4;
+        Pulse { range: -i..i }
+    }
+}
+
+impl Iterator for Pulse {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.range.next() {
+            None => None,
+            Some(0) => Some(Self::PEAK),
+            Some(i) => {
+                let x = f32::from(i) * Self::SAMPLE_SCALE;
+                Some(x.sin() / x * Self::PEAK)
+            }
+        }
+    }
+}
+
+impl Source for Pulse {
+    fn channels(&self) -> u16 {
+        1
+    }
+
+    fn sample_rate(&self) -> u32 {
+        Self::SAMPLE_RATE
+    }
+
+    fn current_frame_len(&self) -> Option<usize> {
+        None
+    }
+
+    fn total_duration(&self) -> Option<Duration> {
+        None
     }
 }
