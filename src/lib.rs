@@ -52,6 +52,7 @@ use rodio::{OutputStream, OutputStreamHandle, Source};
 use std::alloc::{self, GlobalAlloc, Layout};
 use std::cell::Cell;
 use std::f32::consts::PI;
+use std::fmt;
 use std::ops::Range;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -65,6 +66,14 @@ pub struct Geiger<Alloc> {
     stream_handle: OnceLock<Option<OutputStreamHandle>>,
     /// non-blocking protection against recursive init
     init: AtomicBool,
+}
+
+impl<Alloc: fmt::Debug> fmt::Debug for Geiger<Alloc> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Geiger")
+            .field("inner", &self.inner)
+            .finish_non_exhaustive()
+    }
 }
 
 /// `Geiger` allocator based on `std::alloc::System`.

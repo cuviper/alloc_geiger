@@ -8,6 +8,7 @@ use jemallocator::Jemalloc;
 static ALLOC: Geiger<Jemalloc> = Geiger::with_alloc(Jemalloc);
 
 fn main() {
+    dbg!(&ALLOC);
     let delay = Duration::from_millis(1000);
     for i in 1..10 {
         thread::sleep(delay / i);
