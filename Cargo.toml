@@ -10,10 +10,10 @@ readme = "README.md"
 description = """
 A Rust allocator which makes sound when active, like a Geiger counter.
 """
-rust-version = "1.70"
+rust-version = "1.73"
 
 [dependencies.rodio]
-version = "0.17"
+version = "0.20"
 default-features = false
 
 [dev-dependencies]
