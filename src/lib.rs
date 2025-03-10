@@ -13,7 +13,7 @@
 //! ```toml
 //! # Cargo.toml
 //! [dependencies]
-//! alloc_geiger = "0.2"
+//! alloc_geiger = "0.3"
 //! ```
 //!
 //! To set `alloc_geiger::Geiger` as the global allocator, it must be initialized
