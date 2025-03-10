@@ -17,12 +17,12 @@
 //! ```
 //!
 //! To set `alloc_geiger::Geiger` as the global allocator, it must be initialized
-//! with an underlying allocator. The `type System` alias and its `const SYSTEM`
+//! with an underlying allocator. The `type System` alias and the `new()` method
 //! make it easy to use the default system allocator:
 //!
 //! ```rust
 //! #[global_allocator]
-//! static ALLOC: alloc_geiger::System = alloc_geiger::SYSTEM;
+//! static ALLOC: alloc_geiger::System = alloc_geiger::System::new();
 //!
 //! fn main() {
 //!     // ...
@@ -36,7 +36,7 @@
 //! use jemallocator::Jemalloc;
 //!
 //! #[global_allocator]
-//! static ALLOC: Geiger<Jemalloc> = Geiger::new(Jemalloc);
+//! static ALLOC: Geiger<Jemalloc> = Geiger::with_alloc(Jemalloc);
 //!
 //! fn main() {
 //!     // ...
@@ -70,16 +70,19 @@ pub struct Geiger<Alloc> {
 /// `Geiger` allocator based on `std::alloc::System`.
 pub type System = Geiger<alloc::System>;
 
-/// `Geiger` allocator based on `std::alloc::System`.
-pub const SYSTEM: System = Geiger::new(alloc::System);
-
 thread_local! {
     /// Guard against recursion
     static BUSY: Cell<bool> = const { Cell::new(false) };
 }
 
+impl System {
+    pub const fn new() -> Self {
+        Geiger::with_alloc(alloc::System)
+    }
+}
+
 impl<Alloc> Geiger<Alloc> {
-    pub const fn new(inner: Alloc) -> Self {
+    pub const fn with_alloc(inner: Alloc) -> Self {
         Geiger {
             inner,
             stream_handle: OnceLock::new(),

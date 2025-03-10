@@ -5,7 +5,7 @@ use alloc_geiger::Geiger;
 use jemallocator::Jemalloc;
 
 #[global_allocator]
-static ALLOC: Geiger<Jemalloc> = Geiger::new(Jemalloc);
+static ALLOC: Geiger<Jemalloc> = Geiger::with_alloc(Jemalloc);
 
 fn main() {
     let delay = Duration::from_millis(1000);
