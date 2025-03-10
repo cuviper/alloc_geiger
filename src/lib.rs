@@ -13,16 +13,16 @@
 //! ```toml
 //! # Cargo.toml
 //! [dependencies]
-//! alloc_geiger = "0.2"
+//! alloc_geiger = "0.3"
 //! ```
 //!
 //! To set `alloc_geiger::Geiger` as the global allocator, it must be initialized
-//! with an underlying allocator. The `type System` alias and its `const SYSTEM`
+//! with an underlying allocator. The `type System` alias and the `new()` method
 //! make it easy to use the default system allocator:
 //!
 //! ```rust
 //! #[global_allocator]
-//! static ALLOC: alloc_geiger::System = alloc_geiger::SYSTEM;
+//! static ALLOC: alloc_geiger::System = alloc_geiger::System::new();
 //!
 //! fn main() {
 //!     // ...
@@ -36,7 +36,7 @@
 //! use jemallocator::Jemalloc;
 //!
 //! #[global_allocator]
-//! static ALLOC: Geiger<Jemalloc> = Geiger::new(Jemalloc);
+//! static ALLOC: Geiger<Jemalloc> = Geiger::with_alloc(Jemalloc);
 //!
 //! fn main() {
 //!     // ...
@@ -52,6 +52,7 @@ use rodio::{OutputStream, OutputStreamHandle, Source};
 use std::alloc::{self, GlobalAlloc, Layout};
 use std::cell::Cell;
 use std::f32::consts::PI;
+use std::fmt;
 use std::ops::Range;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -67,19 +68,30 @@ pub struct Geiger<Alloc> {
     init: AtomicBool,
 }
 
-/// `Geiger` allocator based on `std::alloc::System`.
-pub type System = Geiger<alloc::System>;
+impl<Alloc: fmt::Debug> fmt::Debug for Geiger<Alloc> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Geiger")
+            .field("inner", &self.inner)
+            .finish_non_exhaustive()
+    }
+}
 
 /// `Geiger` allocator based on `std::alloc::System`.
-pub const SYSTEM: System = Geiger::new(alloc::System);
+pub type System = Geiger<alloc::System>;
 
 thread_local! {
     /// Guard against recursion
     static BUSY: Cell<bool> = const { Cell::new(false) };
 }
 
+impl System {
+    pub const fn new() -> Self {
+        Geiger::with_alloc(alloc::System)
+    }
+}
+
 impl<Alloc> Geiger<Alloc> {
-    pub const fn new(inner: Alloc) -> Self {
+    pub const fn with_alloc(inner: Alloc) -> Self {
         Geiger {
             inner,
             stream_handle: OnceLock::new(),

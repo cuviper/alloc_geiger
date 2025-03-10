@@ -16,16 +16,16 @@ To use `alloc_geiger` add it as a dependency:
 ```toml
 # Cargo.toml
 [dependencies]
-alloc_geiger = "0.2"
+alloc_geiger = "0.3"
 ```
 
 To set `alloc_geiger::Geiger` as the global allocator, it must be initialized
-with an underlying allocator. The `type System` alias and its `const SYSTEM`
+with an underlying allocator. The `type System` alias and the `new()` method
 make it easy to use the default system allocator:
 
 ```rust
 #[global_allocator]
-static ALLOC: alloc_geiger::System = alloc_geiger::SYSTEM;
+static ALLOC: alloc_geiger::System = alloc_geiger::System::new();
 ```
 
 Alternatives like [`jemallocator`] may also be used:
@@ -35,7 +35,7 @@ use alloc_geiger::Geiger;
 use jemallocator::Jemalloc;
 
 #[global_allocator]
-static ALLOC: Geiger<Jemalloc> = Geiger::new(Jemalloc);
+static ALLOC: Geiger<Jemalloc> = Geiger::with_alloc(Jemalloc);
 ```
 
 

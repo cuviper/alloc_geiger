@@ -1,5 +1,5 @@
 #[global_allocator]
-static ALLOC: alloc_geiger::System = alloc_geiger::SYSTEM;
+static ALLOC: alloc_geiger::System = alloc_geiger::System::new();
 
 fn main() {
     let mut vec = Vec::new();
