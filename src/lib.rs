@@ -48,7 +48,7 @@
 //! [Malloc Geiger]: https://github.com/laserallan/malloc_geiger
 //! [`jemallocator`]: https://crates.io/crates/jemallocator
 
-use rodio::{OutputStream, OutputStreamHandle, Source};
+use rodio::{OutputStream, OutputStreamBuilder, Source};
 use std::alloc::{self, GlobalAlloc, Layout};
 use std::cell::Cell;
 use std::f32::consts::PI;
@@ -63,7 +63,7 @@ use std::time::Duration;
 #[derive(Default)]
 pub struct Geiger<Alloc> {
     inner: Alloc,
-    stream_handle: OnceLock<Option<OutputStreamHandle>>,
+    stream_handle: OnceLock<Option<OutputStream>>,
     /// non-blocking protection against recursive init
     init: AtomicBool,
 }
@@ -103,14 +103,14 @@ impl<Alloc> Geiger<Alloc> {
         BUSY.with(|busy| {
             if !busy.replace(true) {
                 if let Some(handle) = self.get_handle() {
-                    let _ = handle.play_raw(Pulse::new());
+                    handle.mixer().add(Pulse::new());
                 }
                 busy.set(false);
             }
         });
     }
 
-    fn get_handle(&self) -> &Option<OutputStreamHandle> {
+    fn get_handle(&self) -> &Option<OutputStream> {
         if let Some(handle) = self.stream_handle.get() {
             handle
         } else if !self.init.swap(true, Ordering::AcqRel) {
@@ -125,38 +125,35 @@ unsafe impl<Alloc: GlobalAlloc> GlobalAlloc for Geiger<Alloc> {
     #[inline]
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         self.bell();
-        self.inner.alloc(layout)
+        unsafe { self.inner.alloc(layout) }
     }
 
     #[inline]
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         self.bell();
-        self.inner.alloc_zeroed(layout)
+        unsafe { self.inner.alloc_zeroed(layout) }
     }
 
     #[inline]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         self.bell();
-        self.inner.dealloc(ptr, layout)
+        unsafe { self.inner.dealloc(ptr, layout) }
     }
 
     #[inline]
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         self.bell();
-        self.inner.realloc(ptr, layout, new_size)
+        unsafe { self.inner.realloc(ptr, layout, new_size) }
     }
 }
 
-fn rodio_init() -> Option<OutputStreamHandle> {
-    if let Ok((stream, handle)) = OutputStream::try_default() {
-        let (source, barrier) = BusySource::new();
-        if let Ok(()) = handle.play_raw(source) {
-            barrier.wait();
-            std::mem::forget(stream);
-            return Some(handle);
-        }
-    }
-    None
+fn rodio_init() -> Option<OutputStream> {
+    let mut stream_handle = OutputStreamBuilder::open_default_stream().ok()?;
+    stream_handle.log_on_drop(false);
+    let (source, barrier) = BusySource::new();
+    stream_handle.mixer().add(source);
+    barrier.wait();
+    Some(stream_handle)
 }
 
 struct BusySource {
@@ -200,7 +197,7 @@ impl Source for BusySource {
         1
     }
 
-    fn current_frame_len(&self) -> Option<usize> {
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 
@@ -252,7 +249,7 @@ impl Source for Pulse {
         Self::SAMPLE_RATE
     }
 
-    fn current_frame_len(&self) -> Option<usize> {
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 
