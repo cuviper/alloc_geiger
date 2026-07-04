@@ -48,7 +48,7 @@
 //! [Malloc Geiger]: https://github.com/laserallan/malloc_geiger
 //! [`jemallocator`]: https://crates.io/crates/jemallocator
 
-use rodio::{OutputStream, OutputStreamBuilder, Source};
+use rodio::{ChannelCount, DeviceSinkBuilder, MixerDeviceSink, SampleRate, Source};
 use std::alloc::{self, GlobalAlloc, Layout};
 use std::cell::Cell;
 use std::f32::consts::PI;
@@ -63,7 +63,7 @@ use std::time::Duration;
 #[derive(Default)]
 pub struct Geiger<Alloc> {
     inner: Alloc,
-    stream_handle: OnceLock<Option<OutputStream>>,
+    sink_handle: OnceLock<Option<MixerDeviceSink>>,
     /// non-blocking protection against recursive init
     init: AtomicBool,
 }
@@ -94,7 +94,7 @@ impl<Alloc> Geiger<Alloc> {
     pub const fn with_alloc(inner: Alloc) -> Self {
         Geiger {
             inner,
-            stream_handle: OnceLock::new(),
+            sink_handle: OnceLock::new(),
             init: AtomicBool::new(false),
         }
     }
@@ -110,11 +110,11 @@ impl<Alloc> Geiger<Alloc> {
         });
     }
 
-    fn get_handle(&self) -> &Option<OutputStream> {
-        if let Some(handle) = self.stream_handle.get() {
+    fn get_handle(&self) -> &Option<MixerDeviceSink> {
+        if let Some(handle) = self.sink_handle.get() {
             handle
         } else if !self.init.swap(true, Ordering::AcqRel) {
-            self.stream_handle.get_or_init(rodio_init)
+            self.sink_handle.get_or_init(rodio_init)
         } else {
             &None
         }
@@ -147,13 +147,13 @@ unsafe impl<Alloc: GlobalAlloc> GlobalAlloc for Geiger<Alloc> {
     }
 }
 
-fn rodio_init() -> Option<OutputStream> {
-    let mut stream_handle = OutputStreamBuilder::open_default_stream().ok()?;
-    stream_handle.log_on_drop(false);
+fn rodio_init() -> Option<MixerDeviceSink> {
+    let mut sink_handle = DeviceSinkBuilder::open_default_sink().ok()?;
+    sink_handle.log_on_drop(false);
     let (source, barrier) = BusySource::new();
-    stream_handle.mixer().add(source);
+    sink_handle.mixer().add(source);
     barrier.wait();
-    Some(stream_handle)
+    Some(sink_handle)
 }
 
 struct BusySource {
@@ -189,12 +189,12 @@ impl Iterator for BusySource {
 }
 
 impl Source for BusySource {
-    fn channels(&self) -> u16 {
-        1
+    fn channels(&self) -> ChannelCount {
+        const { ChannelCount::new(1).unwrap() }
     }
 
-    fn sample_rate(&self) -> u32 {
-        1
+    fn sample_rate(&self) -> SampleRate {
+        const { SampleRate::new(1).unwrap() }
     }
 
     fn current_span_len(&self) -> Option<usize> {
@@ -241,12 +241,12 @@ impl Iterator for Pulse {
 }
 
 impl Source for Pulse {
-    fn channels(&self) -> u16 {
-        1
+    fn channels(&self) -> ChannelCount {
+        const { ChannelCount::new(1).unwrap() }
     }
 
-    fn sample_rate(&self) -> u32 {
-        Self::SAMPLE_RATE
+    fn sample_rate(&self) -> SampleRate {
+        const { SampleRate::new(Self::SAMPLE_RATE).unwrap() }
     }
 
     fn current_span_len(&self) -> Option<usize> {
