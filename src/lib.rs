@@ -192,7 +192,7 @@ impl Source for BusySource {
     }
 
     fn sample_rate(&self) -> SampleRate {
-        const { SampleRate::new(1).unwrap() }
+        const { SampleRate::new(100).unwrap() }
     }
 
     fn current_span_len(&self) -> Option<usize> {
